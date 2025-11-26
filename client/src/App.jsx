@@ -1,17 +1,24 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Route, Routes } from 'react-router-dom'
 
 import { Login, Feed, Messages, Discover, ChatBox, Profile, CreatePost, Layout, Connections } from './pages/imports'
 
-import { useUser } from '@clerk/clerk-react'
+import { useUser, useAuth } from '@clerk/clerk-react'
 import { Toaster } from 'react-hot-toast'
 
 const App = () => {
 
-  const { isSignedIn, isLoaded } = useUser();
+  const { user, isSignedIn, isLoaded } = useUser();
+  const { getToken } = useAuth()
+
+  useEffect(() => {
+    if(user) {
+      getToken().then((token) => console.log(token))
+    }
+  }, [user])
 
   if(!isLoaded) return null;
-
+  
   return (
     <>
     <Toaster />

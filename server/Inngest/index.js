@@ -1,5 +1,8 @@
 import { Inngest } from "inngest";
 import User from "../models/User.model.js";
+import connectDB from "../configs/db.js";
+
+await connectDB()
 
 export const inngest = new Inngest({ id: "kollab-app" });
 
@@ -12,7 +15,8 @@ const syncUserCreation = inngest.createFunction(
   {id: 'sync-user-from-clerk'},
   {event: 'clerk/user.created'},
   async ({event}) => {
-    const {id, first_name, last_name, email_addresses, image_url} = event.data
+    const {id, first_name, last_name, image_url} = event.data
+
     const email = getEmail(event)
     if(!email) {
       return { error: true, message: "No email provided by Clerk" }
@@ -29,7 +33,7 @@ const syncUserCreation = inngest.createFunction(
 
     const userData = {
       _id: id,
-      email: email_addresses[0].email_address,
+      email,
       full_name: first_name + " " + last_name,
       profile_picture: image_url,
       username
@@ -45,7 +49,7 @@ const syncUserUpdation = inngest.createFunction(
   {id: 'update-user-from-clerk'},
   {event: 'clerk/user.updated'},
   async ({event}) => {
-    const {id, first_name, last_name, email_addresses, image_url} = event.data
+    const {id, first_name, last_name, image_url} = event.data
 
     const email = getEmail(event);
     if (!email) {

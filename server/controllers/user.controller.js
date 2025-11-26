@@ -148,11 +148,11 @@ export const unFollowUser = async (req, res) => {
     const { id } = req.body
 
     const user = await User.findById(userId)
-    user.following = user.following.filter(user => user !== id)
+    user.following = user.following.filter(user => user.toString() !== id.toString())
     await user.save()
 
     const toUser = await User.findById(id)
-    toUser.followers = toUser.followers.filter(user !== userId)
+    toUser.followers = toUser.followers.filter(user => user.toString() !== userId.String())
     await toUser.save()
 
     res.json({ success: true, message: 'You are no longer following this user' })

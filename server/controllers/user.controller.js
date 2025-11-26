@@ -94,18 +94,70 @@ export const updateUserData = async (req, res) => {
   }
 }
 
-export const getUserData = async (req, res) => {
+export const discoverUsers = async (req, res) => {
   try {
     const { userId } = req.auth()
+    const { input } = req.body
+
+    const allUsers = await User.find({
+      $or: [
+        {username: new RegExp(input, 'i')},
+        {email: new RegExp(input, 'i')},
+        {full_name: new RegExp(input, 'i')},
+        {location: new RegExp(input, 'i')},
+      ]
+    })
+
+    const filteredUsers = allUsers.filter((user) => user._id !== userId)
+
+    return res.json({ success: true, users: filteredUsers })
+  } catch (error) {
+    console.log(`Error in discovering new users: ${error.message}`);
+    res.json({ success: false, message: error.message })
+  }
+}
+
+export const followUser = async (req, res) => {
+  try {
+    const { userId } = req.auth()
+    const { id } = req.body
+
     const user = await User.findById(userId)
 
-    if(!user) {
-      return res.json({ success: false, message: 'User not found' })
+    if(user.following.includes(id)) {
+      return res.json({ success: false, message: 'You are already following this user' })
     }
 
-    res.json({ success: true, user })
+    user.following.push(id)
+    await user.save()
+
+    const toUser = await User.findById(id)
+    toUser.followers.push(userId)
+    await toUser.save()
+
+    return res.json({ success: true, message: 'Now you are following this user' })
   } catch (error) {
-    console.log(`Error in fetching user data: ${error.message}`);
+    console.log(`Error in following user: ${error.message}`);
+    res.json({ success: false, message: error.message })
+  }
+}
+
+export const unFollowUser = async (req, res) => {
+  try {
+    const { userId } = req.auth()
+    const { id } = req.body
+
+    const user = await User.findById(userId)
+    user.following = user.following.filter(user => user !== id)
+    await user.save()
+
+    const toUser = await User.findById(id)
+    toUser.followers = toUser.followers.filter(user !== userId)
+    await toUser.save()
+
+    res.json({ success: true, message: 'You are no longer following this user' })
+  } catch (error) {
+    console.log(`Error in unfollowing user: ${error.message}`);
     res.json({ success: false, message: error.message })
   }
 }

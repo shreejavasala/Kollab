@@ -3,6 +3,7 @@ import User from "../models/User.model.js";
 import connectDB from "../configs/db.js";
 import Connection from "../models/Connection.model.js";
 import sendEmail from "../configs/nodemailer.js";
+import Story from "../models/Story.model.js";
 
 export const inngest = new Inngest({ id: "kollab-app" });
 
@@ -154,9 +155,31 @@ const sendNewConnectionRequestReminder = inngest.createFunction(
 
 )
 
+// Inngest Function to delete story after 24 hours
+const deleteStory = inngest.createFunction(
+  {id: 'story-delete'},
+  {event: 'app/story-delete'},
+  async ({event, step}) => {
+    try {
+      const { storyId } = event.data
+      const in24Hours = new Date(Date.now() + 24 * 60 * 60 * 1000)
+      await step.sleepUntil('wait-for-24-hours', in24Hours)
+      await step.run('delete-story', async () => {
+        await Story.findByIdAndDelete(storyId)
+        return { message: 'Story deleted.' }
+      })
+
+    } catch (error) {
+      console.error("Error in deleting story:", error);
+      return { status: "error", message: error.message };
+    }
+  }
+)
+
 export const functions = [
   syncUserCreation,
   syncUserUpdation,
   syncUserDeletion,
-  sendNewConnectionRequestReminder
+  sendNewConnectionRequestReminder,
+  deleteStory
 ];

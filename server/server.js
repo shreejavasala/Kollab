@@ -7,6 +7,7 @@ import { serve } from 'inngest/express'
 import { clerkMiddleware } from '@clerk/express'
 import userRouter from './routes/user.route.js'
 import postRouter from './routes/post.route.js'
+import storyRouter from './routes/story.route.js'
 
 const PORT = process.env.PORT || 3500
 const app = express()
@@ -21,6 +22,7 @@ app.get('/', (req, res) => {
 app.use("/api/inngest", serve({ client: inngest, functions: functions || [] }));
 app.use('/api/user', userRouter)
 app.use('/api/post', postRouter)
+app.use('/api/router', storyRouter)
 
 const startServer = async () => {
   try {

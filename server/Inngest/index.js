@@ -2,8 +2,6 @@ import { Inngest } from "inngest";
 import User from "../models/User.model.js";
 import connectDB from "../configs/db.js";
 
-await connectDB()
-
 export const inngest = new Inngest({ id: "kollab-app" });
 
 function getEmail(event) {
@@ -12,78 +10,75 @@ function getEmail(event) {
 
 // Inngest Function to save user data to a database
 const syncUserCreation = inngest.createFunction(
-  {id: 'sync-user-from-clerk'},
-  {event: 'clerk/user.created'},
-  async ({event}) => {
-    const {id, first_name, last_name, image_url} = event.data
+  { id: "sync-user-from-clerk" },
+  { event: "clerk/user.created" },
+  async ({ event }) => {
+    try {
+      await connectDB();
+      const { id, first_name, last_name, image_url } = event.data;
+      const email = getEmail(event);
+      if (!email) return { error: true, message: "No email provided by Clerk" };
 
-    const email = getEmail(event)
-    if(!email) {
-      return { error: true, message: "No email provided by Clerk" }
+      let username = email.split("@")[0];
+      const existingUser = await User.findOne({ username });
+      if (existingUser) username += Math.floor(Math.random() * 10000);
+
+      const userData = {
+        _id: id,
+        email,
+        full_name: `${first_name ?? ""} ${last_name ?? ""}`.trim(),
+        profile_picture: image_url,
+        username
+      };
+
+      await User.create(userData);
+      return { status: "created", userId: id };
+    } catch (err) {
+      console.error("Error in syncUserCreation:", err);
+      return { status: "error", message: err.message };
     }
-
-    let username = email.split('@')[0]
-
-    // Check availability of username
-    const user = await User.findOne({username})
-
-    if(user) {
-      username = username + Math.floor(Math.random() * 10000)
-    }
-
-    const userData = {
-      _id: id,
-      email,
-      full_name: first_name + " " + last_name,
-      profile_picture: image_url,
-      username
-    }
-
-    await User.create(userData)
-    return { status: "created", userId: id }
   }
 )
 
 // Inngest Function to update user data in database
 const syncUserUpdation = inngest.createFunction(
-  {id: 'update-user-from-clerk'},
-  {event: 'clerk/user.updated'},
-  async ({event}) => {
-    const {id, first_name, last_name, image_url} = event.data
+  { id: "update-user-from-clerk" },
+  { event: "clerk/user.updated" },
+  async ({ event }) => {
+    try {
+      await connectDB();
+      const { id, first_name, last_name, image_url } = event.data;
+      const email = getEmail(event);
+      if (!email) return { error: true, message: "No email provided by Clerk" };
 
-    const email = getEmail(event);
-    if (!email) {
-      return { error: true, message: "No email provided by Clerk" };
-    }
+      const updatedUserData = {
+        email,
+        full_name: `${first_name ?? ""} ${last_name ?? ""}`.trim(),
+        profile_picture: image_url
+      };
 
-    const updatedUserData = {
-      email,
-      full_name: `${first_name ?? ""} ${last_name ?? ""}`.trim(),
-      profile_picture: image_url
+      await User.findByIdAndUpdate(id, updatedUserData);
+      return { status: "updated", userId: id };
+    } catch (err) {
+      console.error("Error in syncUserUpdation:", err);
+      return { status: "error", message: err.message };
     }
-    
-    await User.findByIdAndUpdate(id, updatedUserData)
-    return { status: "updated", userId: id }
   }
 )
 
 // Inngest Function to delete user from database
 const syncUserDeletion = inngest.createFunction(
-  { id: 'delete-user-from-clerk' },
-  { event: 'clerk/user.deleted' },
-  async ({ event, step }) => {
+  { id: "delete-user-from-clerk" },
+  { event: "clerk/user.deleted" },
+  async ({ event }) => {
     try {
-      console.log("DELETE EVENT:", event);
+      await connectDB();
       const { id } = event.data;
-
       const deletedUser = await User.findByIdAndDelete(id);
-
-      console.log("DELETED USER:", deletedUser);
-
       return { status: "deleted", userId: id };
-    } catch (error) {
-      console.error("DELETE ERROR:", error);
-      return { status: "error", message: error.message };
+    } catch (err) {
+      console.error("Error in syncUserDeletion:", err);
+      return { status: "error", message: err.message };
     }
   }
 );

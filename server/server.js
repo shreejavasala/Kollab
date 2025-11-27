@@ -8,6 +8,7 @@ import { clerkMiddleware } from '@clerk/express'
 import userRouter from './routes/user.route.js'
 import postRouter from './routes/post.route.js'
 import storyRouter from './routes/story.route.js'
+import messageRouter from './routes/message.route.js'
 
 const PORT = process.env.PORT || 3500
 const app = express()
@@ -23,6 +24,7 @@ app.use("/api/inngest", serve({ client: inngest, functions: functions || [] }));
 app.use('/api/user', userRouter)
 app.use('/api/post', postRouter)
 app.use('/api/router', storyRouter)
+app.use('/api/message', messageRouter)
 
 const startServer = async () => {
   try {

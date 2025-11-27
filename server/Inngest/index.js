@@ -4,6 +4,7 @@ import connectDB from "../configs/db.js";
 import Connection from "../models/Connection.model.js";
 import sendEmail from "../configs/nodemailer.js";
 import Story from "../models/Story.model.js";
+import Message from "../models/Message.model.js";
 
 export const inngest = new Inngest({ id: "kollab-app" });
 
@@ -37,8 +38,8 @@ const syncUserCreation = inngest.createFunction(
       await User.create(userData);
       return { status: "created", userId: id };
     } catch (error) {
-      console.error("Error in syncUserCreation:", error);
-      return { status: "error", message: error.message };
+      console.error("Error in syncUserCreation:", error)
+      return { status: "error", message: error.message }
     }
   }
 )
@@ -63,8 +64,8 @@ const syncUserUpdation = inngest.createFunction(
       await User.findByIdAndUpdate(id, updatedUserData);
       return { status: "updated", userId: id };
     } catch (error) {
-      console.error("Error in syncUserUpdation:", error);
-      return { status: "error", message: error.message };
+      console.error("Error in syncUserUpdation:", error)
+      return { status: "error", message: error.message }
     }
   }
 )
@@ -80,12 +81,11 @@ const syncUserDeletion = inngest.createFunction(
       const deletedUser = await User.findByIdAndDelete(id);
       return { status: "deleted", userId: id };
     } catch (error) {
-      console.error("Error in syncUserDeletion:", error);
-      return { status: "error", message: error.message };
+      console.error("Error in syncUserDeletion:", error)
+      return { status: "error", message: error.message }
     }
   }
 );
-
 
 // create Function to send Reminder whena a new connection request is added
 const sendNewConnectionRequestReminder = inngest.createFunction(
@@ -148,8 +148,8 @@ const sendNewConnectionRequestReminder = inngest.createFunction(
       })
       
     } catch (error) {
-      console.error("Error in sending reminder:", error);
-      return { status: "error", message: error.message };
+      console.error("Error in sending reminder:", error)
+      return { status: "error", message: error.message }
     }
   }
 
@@ -170,8 +170,49 @@ const deleteStory = inngest.createFunction(
       })
 
     } catch (error) {
-      console.error("Error in deleting story:", error);
-      return { status: "error", message: error.message };
+      console.error("Error in deleting story:", error)
+      return { status: "error", message: error.message }
+    }
+  }
+)
+
+const sendNotificationOfUnseenMessages = inngest.createFunction(
+  {id: 'send-unseen-messages-notification'},
+  {cron: 'TZ-America/New_York 0 9 * * *'}, // Every day at 9AM automatically
+  async({step}) => {
+    try {
+      const messages = await Message.find({ seen: false }).populate('to_user_id');
+      const unseenCount = {}
+
+      messages.map((message) => {
+        unseenCount[message.to_user_id._id] = (unseenCount[message.to_user_id._id] || 0) + 1
+      })
+
+      for(const userId in unseenCount) {
+        const user = await User.findById(userId)
+        const subject = `You have ${unseenCount[userId]} unseen messages`
+
+        const body = `
+        <div style='font-family: Arial, sans-serif; padding: 20px;'>
+        <h2>Hi ${user.full_name},</h2>
+        <p>You have ${unseenCount[userId]} unseen messages</p>
+        <p>Click <a href='${process.env.FRONTEND_URL}/messages}' style='color:#10b981;'>here</a> to view them</p>
+        <br />
+        <p>Thanks, <br /> Kollab - Stay Connected</p>
+        </div>
+        `
+
+        await sendEmail({
+          to: user.email,
+          subject,
+          body
+        })
+      }
+
+      return { message: 'Nofification send.' }
+    } catch (error) {
+      console.error("Error in sending notifications of unseen messages:", error)
+      return { status: "error", message: error.message }
     }
   }
 )
@@ -181,5 +222,6 @@ export const functions = [
   syncUserUpdation,
   syncUserDeletion,
   sendNewConnectionRequestReminder,
-  deleteStory
+  deleteStory,
+  sendNotificationOfUnseenMessages
 ];

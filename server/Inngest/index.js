@@ -1,6 +1,8 @@
 import { Inngest } from "inngest";
 import User from "../models/User.model.js";
 import connectDB from "../configs/db.js";
+import Connection from "../models/Connection.model.js";
+import sendEmail from "../configs/nodemailer.js";
 
 export const inngest = new Inngest({ id: "kollab-app" });
 
@@ -33,9 +35,9 @@ const syncUserCreation = inngest.createFunction(
 
       await User.create(userData);
       return { status: "created", userId: id };
-    } catch (err) {
-      console.error("Error in syncUserCreation:", err);
-      return { status: "error", message: err.message };
+    } catch (error) {
+      console.error("Error in syncUserCreation:", error);
+      return { status: "error", message: error.message };
     }
   }
 )
@@ -59,9 +61,9 @@ const syncUserUpdation = inngest.createFunction(
 
       await User.findByIdAndUpdate(id, updatedUserData);
       return { status: "updated", userId: id };
-    } catch (err) {
-      console.error("Error in syncUserUpdation:", err);
-      return { status: "error", message: err.message };
+    } catch (error) {
+      console.error("Error in syncUserUpdation:", error);
+      return { status: "error", message: error.message };
     }
   }
 )
@@ -76,16 +78,85 @@ const syncUserDeletion = inngest.createFunction(
       const { id } = event.data;
       const deletedUser = await User.findByIdAndDelete(id);
       return { status: "deleted", userId: id };
-    } catch (err) {
-      console.error("Error in syncUserDeletion:", err);
-      return { status: "error", message: err.message };
+    } catch (error) {
+      console.error("Error in syncUserDeletion:", error);
+      return { status: "error", message: error.message };
     }
   }
 );
 
 
+// create Function to send Reminder whena a new connection request is added
+const sendNewConnectionRequestReminder = inngest.createFunction(
+  { id: 'send-new-connection-request-reminder' },
+  { event: 'app/connection-request' },
+  async ({ event, step }) => {
+    try {
+      await connectDB()
+      const { connectionId } = event.data;
+
+      await step.run('send-connection-request-mail', async () => {
+        const connection = await Connection.findById(connectionId).populate('from_user_id, to_user_id')
+
+        const subject = '👋 New Connection Request'
+        const body = `
+        <div style='font-family: Arial, sans-serif; padding: 20px;'>
+        <h2>Hi ${connection.to_user_id.full_name},</h2>
+        <p>You have a new connection request from ${connection.from_user_id.full_name} - @${connection.from_user_id.username}</p>
+        <p>Click <a href='${process.env.FRONTEND_URL}/connections}' style='color:#10b981;'>here</a> to accept or reject the request</p>
+        <br />
+        <p>Thanks, <br /> Kollab - Stay Connected</p>
+        </div>
+        `
+
+        await sendEmail({
+          to: connection.to_user_id.email,
+          subject,
+          body
+        })
+
+      })
+
+      const in24Hours = new Date(Date.now() + 24 * 60 * 60 * 1000)
+      await step.sleepUntil('wait-for-24-hours', in24Hours)
+      await step.run('send-connection-request-reminder', async () => {
+        const connection = await Connection.findById(connectionId).populate('from_user_id, to_user_id')
+        
+        if(connection.status === 'accepted') {
+          return { message: 'Already accepted' }
+        }
+
+        const subject = 'Pending Connection Request'
+        const body = `
+        <div style='font-family: Arial, sans-serif; padding: 20px;'>
+        <h2>Hi ${connection.to_user_id.full_name},</h2>
+        <p>You have a pending connection request from ${connection.from_user_id.full_name} - @${connection.from_user_id.username}</p>
+        <p>Click <a href='${process.env.FRONTEND_URL}/connections}' style='color:#10b981;'>here</a> to accept or reject the request</p>
+        <br />
+        <p>Thanks, <br /> Kollab - Stay Connected</p>
+        </div>
+        `
+
+        await sendEmail({
+          to: connection.to_user_id.email,
+          subject,
+          body
+        })
+        
+        return { message: 'Reminder sent.' }
+      })
+      
+    } catch (error) {
+      console.error("Error in sending reminder:", error);
+      return { status: "error", message: error.message };
+    }
+  }
+
+)
+
 export const functions = [
   syncUserCreation,
   syncUserUpdation,
-  syncUserDeletion
+  syncUserDeletion,
+  sendNewConnectionRequestReminder
 ];

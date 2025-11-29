@@ -233,7 +233,7 @@ export const acceptConnectionRequest = async (req, res) => {
     const { userId } = req.auth()
     const { id } = req.body
 
-    const connection = await Connection.findOne({ from_user_id: id, to_user_id: id })
+    const connection = await Connection.findOne({ from_user_id: id, to_user_id: userId })
 
     if(!connection) {
       return res.json({ success: false, message: 'Connection not found' })
@@ -245,12 +245,12 @@ export const acceptConnectionRequest = async (req, res) => {
 
     const toUser = await User.findById(id)
     toUser.connections.push(userId)
-    await user.save()
+    await toUser.save()
 
     connection.status = 'accepted'
     await connection.save()
 
-    response.json({ success: true, message: 'Connection accepted successfully' })
+    res.json({ success: true, message: 'Connection accepted successfully' })
   } catch (error) {
     console.log(`Error in accepting connection request: ${error.message}`)
     res.json({ success: false, message: error.message })
@@ -260,7 +260,7 @@ export const acceptConnectionRequest = async (req, res) => {
 export const getUserProfiles = async (req, res) => {
   try {
     const { profileId } = req.body
-    const profile = await User.findById(userId)
+    const profile = await User.findById(profileId)
 
     if(!profile) {
       return res.json({ success: false, message: 'Profile not found' })
@@ -268,7 +268,7 @@ export const getUserProfiles = async (req, res) => {
 
     const posts = await Post.find({ user: profileId }).populate('user')
 
-    res.json({ success: false, profile, posts })
+    res.json({ success: true, profile, posts })
   } catch (error) {
     console.log(`Error in fetching user profile: ${error.message}`)
     res.json({ success: false, message: error.message })

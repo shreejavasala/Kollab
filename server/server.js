@@ -23,7 +23,7 @@ app.get('/', (req, res) => {
 app.use("/api/inngest", serve({ client: inngest, functions: functions || [] }));
 app.use('/api/user', userRouter)
 app.use('/api/post', postRouter)
-app.use('/api/router', storyRouter)
+app.use('/api/story', storyRouter)
 app.use('/api/message', messageRouter)
 
 const startServer = async () => {

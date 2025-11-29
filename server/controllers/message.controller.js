@@ -7,7 +7,7 @@ const connections = {}
 
 // Controller function for the SSE endpoint
 export const sseController = (req, res) => {
-  const userId = req.params
+  const {userId} = req.params
   console.log(`New client connected: ${userId}`)
 
   // Set SSE headers
@@ -16,11 +16,13 @@ export const sseController = (req, res) => {
   res.setHeader('Connection', 'keep-alive')
   res.setHeader('Access-Control-Allow-Origin', '*')
 
+  res.flushHeaders?.();
+
   // Add the client's response object to the connections object
   connections[userId] = res
 
   // Send an initial event to the client
-  res.write('log: Connected to SSE stream\n\n')
+  res.write('data: connected\n\n')
 
   // Handle client disconnection
   req.on('close', () => {

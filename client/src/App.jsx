@@ -1,21 +1,79 @@
-import React, { useEffect } from 'react'
-import { Route, Routes } from 'react-router-dom'
+import React, { useEffect, useRef } from 'react'
+import { Route, Routes, useLocation } from 'react-router-dom'
 
 import { Login, Feed, Messages, Discover, ChatBox, Profile, CreatePost, Layout, Connections } from './pages/imports'
 
 import { useUser, useAuth } from '@clerk/clerk-react'
-import { Toaster } from 'react-hot-toast'
+import toast, { Toaster } from 'react-hot-toast'
+import { useDispatch, useSelector } from 'react-redux'
+import { fetchUser } from './features/user/userSlice'
+import { fetchConnections } from './features/connections/connectionsSlice'
+import { addMessage } from './features/messages/messagesSlice'
+import Notification from './components/Notification'
 
 const App = () => {
 
   const { user, isSignedIn, isLoaded } = useUser();
+  const backendUser = useSelector((state) => state.user.userData);
+
   const { getToken } = useAuth()
+  const dispatch = useDispatch()
+  const { pathname } = useLocation()
+  const pathnameRef = useRef(pathname)
+
 
   useEffect(() => {
-    if(user) {
-      getToken().then((token) => console.log(token))
+    const fetchData = async () => {
+      if(user) {
+        const token = await getToken()
+        dispatch(fetchUser(token))
+        dispatch(fetchConnections(token))
+      }
     }
-  }, [user])
+    fetchData()
+    
+  }, [user, getToken, dispatch])
+
+  useEffect(() => {
+    pathnameRef.current = pathname
+  }, [pathname])
+
+  useEffect(() => {
+    if(!backendUser) return
+
+    console.log(backendUser._id)
+    if(backendUser) {
+      const eventSource = new EventSource(import.meta.env.VITE_BASE_URL + '/api/message/' + backendUser._id)
+
+      eventSource.onopen = () => console.log("SSE Connected");
+      eventSource.onerror = (err) => console.log("SSE Error:", err);
+
+      eventSource.onmessage = (event) => {
+        if(event.data === 'connected') return
+
+        const message = JSON.parse(event.data)
+        console.log("EVENT:", event.data)
+
+        const chatPath = '/messages/' + 
+        (message.from_user_id._id === backendUser._id 
+          ? message.to_user_id 
+          : message.from_user_id);
+
+        if(pathnameRef.current === chatPath) {
+          dispatch(addMessage(message))
+        }else {
+          toast.custom((t) => (
+            <Notification t={t} message={message} />
+          ), {
+            position: 'bottom-right'
+          })
+        }
+      }
+      return () => {
+        eventSource.close()
+      }
+    }
+  }, [backendUser, dispatch])
 
   if(!isLoaded) return null;
   

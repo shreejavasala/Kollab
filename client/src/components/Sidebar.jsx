@@ -1,10 +1,10 @@
 import React from 'react'
-import { assets, dummyUserData } from '../assets/assets'
 import { Link, useNavigate } from 'react-router-dom'
 import MenuItems from './MenuItems';
 import { CirclePlus, LogOut } from 'lucide-react';
 import { useClerk, UserButton } from '@clerk/clerk-react';
 import { useSelector } from 'react-redux';
+import { assets } from '../assets/assets';
 
 const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
 
